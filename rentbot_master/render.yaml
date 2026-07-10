@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: rentbot-master
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: MASTER_BOT_TOKEN
+        sync: false
+      - key: OWNER_IDS
+        sync: false
+      - key: ADMIN_CONTACT_USERNAME
+        sync: false
+      - key: WEBHOOK_BASE_URL
+        sync: false
