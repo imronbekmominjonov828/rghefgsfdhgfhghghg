@@ -33,5 +33,5 @@ PAGE_SIZE = 10
 
 # Render uchun (VPS'da ishlatilganda WEBHOOK_BASE_URL bo'sh qoldiriladi, polling ishlaydi)
 PORT = int(os.getenv("PORT", "8080"))
-WEBHOOK_BASE_URL = os.getenv("WEBHOOK_BASE_URL", "")  # https://xxx.onrender.com yoki bo'sh
+WEBHOOK_BASE_URL = os.getenv("WEBHOOK_BASE_URL", "https://rentbot-master.onrender.com](https://rentbot-master.onrender.com")  # https://xxx.onrender.com yoki bo'sh
 USE_WEBHOOK = bool(WEBHOOK_BASE_URL)
