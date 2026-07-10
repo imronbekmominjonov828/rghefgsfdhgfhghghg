@@ -67,4 +67,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Python 3.12+ va 3.14 uchun asosiy event loop muhitini yaratamiz
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        main()
+    finally:
+        loop.close()
