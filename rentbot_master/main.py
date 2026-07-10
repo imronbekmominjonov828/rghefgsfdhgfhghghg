@@ -4,6 +4,7 @@ MASTER BOT — asosiy ishga tushiruvchi fayl.
 import asyncio
 import logging
 import httpx
+import os  # Render muhitini to'g'ridan-to'g'ri tekshirish uchun
 
 from telegram.ext import ApplicationBuilder
 
@@ -25,33 +26,28 @@ async def keep_alive_ping():
     """
     Render serverini hadep o'chib qolmasligi uchun har 10 daqiqada uyg'otib turuvchi funksiya.
     """
-    if USE_WEBHOOK and WEBHOOK_BASE_URL:
-        url = WEBHOOK_BASE_URL.rstrip('/')
-        await asyncio.sleep(30)  # Server to'liq yuklanishini kutamiz
-        
+    # Agarda webhook ishlayotgan bo'lsa o'zini ping qiladi
+    url = WEBHOOK_BASE_URL or os.environ.get("WEBHOOK_BASE_URL")
+    if url:
+        url = url.rstrip('/')
+        await asyncio.sleep(30)
         while True:
             try:
                 async with httpx.AsyncClient() as client:
-                    # Render o'z portimizga kelayotgan so'rovni ko'rishi uchun asosiy URL'ga ping beramiz
                     response = await client.get(url, timeout=10)
                     logger.info(f"⏰ Anti-Sleep ping muvaffaqiyatli: Status {response.status_code}")
             except Exception as e:
                 logger.warning(f"⚠️ Anti-Sleep pingda xatolik: {e}")
-            
-            await asyncio.sleep(600)  # Har 10 daqiqada
+            await asyncio.sleep(600)
 
 
 async def post_init(application):
     await init_master_db()
     logger.info("Master DB tayyor.")
 
-    # Server qayta ko'tarilganda child-botlarni ham qayta ishga tushirish
+    # Child-botlarni qayta ko'tarish va scheduler
     asyncio.create_task(cbm.restart_all_active_bots())
-
-    # Fon vazifasi (muddati tugaganlarni tekshirish)
     asyncio.create_task(run_scheduler_loop(application.bot))
-
-    # O'chib qolmaslik tizimi
     asyncio.create_task(keep_alive_ping())
 
 
@@ -66,27 +62,38 @@ def main():
     register_user_flow_handlers(app)
     register_admin_panel_handlers(app)
 
-    if USE_WEBHOOK:
-        logger.info(f"Master bot WEBHOOK rejimida {PORT}-portda ishga tushdi: {WEBHOOK_BASE_URL}")
+    # RENDER_PORT yoki oddij PORT borligini tekshiramiz. Render'da IS_RENDER yoki PORT har doim bo'ladi.
+    # Bu joyda config'dan kelayotgan USE_WEBHOOK har doim True bo'lishini majburlaymiz agar Render'da bo'lsak.
+    is_render = os.environ.get("RENDER") is not None or os.environ.get("PORT") is not None
+
+    if USE_WEBHOOK or is_render:
+        # Portni Render muhitidan aniq o'qib olamiz (agar configda xato bo'lsa)
+        render_port = int(os.environ.get("PORT", PORT or 10000))
+        render_url = WEBHOOK_BASE_URL or os.environ.get("WEBHOOK_BASE_URL")
         
-        # run_webhook funksiyasi ichkarida avtomatik ravishda Tornado/Aiohttp serverini 
-        # port orqali ochadi va tashqi so'rovlarni tinglaydi.
+        if not render_url:
+            logger.error("❌ WEBHOOK_BASE_URL topilmadi! Render muhit sozlamalariga kiriting.")
+            # Webhook URL bo'lmasa majburan lokal ishga tushadi, lekin render o'chirib yuboradi
+            app.run_polling(allowed_updates=["message", "callback_query"])
+            return
+
+        logger.info(f"🚀 Master bot WEBHOOK rejimida {render_port}-portda ishga tushmoqda...")
+        
         app.run_webhook(
             listen="0.0.0.0",
-            port=PORT,  # Render beradigan ichki PORT (odatda 10000)
+            port=render_port,
             url_path="webhook",
-            webhook_url=f"{WEBHOOK_BASE_URL}/webhook",
+            webhook_url=f"{render_url.rstrip('/')}/webhook",
             allowed_updates=["message", "callback_query"],
         )
     else:
-        logger.info("Master bot POLLING rejimida ishga tushdi (lokal test).")
+        logger.info("🤖 Master bot POLLING rejimida ishga tushdi (lokal test).")
         app.run_polling(allowed_updates=["message", "callback_query"])
 
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
     try:
         main()
     finally:
