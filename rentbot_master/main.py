@@ -4,7 +4,7 @@ MASTER BOT — asosiy ishga tushiruvchi fayl.
 import asyncio
 import logging
 import httpx
-import os  # Render muhitini to'g'ridan-to'g'ri tekshirish uchun
+import os
 
 from telegram.ext import ApplicationBuilder
 
@@ -22,11 +22,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def keep_alive_ping():
+async def keep_alive_ping(application):
     """
     Render serverini hadep o'chib qolmasligi uchun har 10 daqiqada uyg'otib turuvchi funksiya.
     """
-    # Agarda webhook ishlayotgan bo'lsa o'zini ping qiladi
     url = WEBHOOK_BASE_URL or os.environ.get("WEBHOOK_BASE_URL")
     if url:
         url = url.rstrip('/')
@@ -45,10 +44,11 @@ async def post_init(application):
     await init_master_db()
     logger.info("Master DB tayyor.")
 
-    # Child-botlarni qayta ko'tarish va scheduler
-    asyncio.create_task(cbm.restart_all_active_bots())
-    asyncio.create_task(run_scheduler_loop(application.bot))
-    asyncio.create_task(keep_alive_ping())
+    # MUHIM O'ZGARISH: Fon vazifalarini PTB'ning o'zining event loop boshqaruviga topshiramiz.
+    # Bu orqali run_webhook loopni yangilasa ham, ushbu tasklar o'lib qolmaydi.
+    application.create_task(cbm.restart_all_active_bots())
+    application.create_task(run_scheduler_loop(application.bot))
+    application.create_task(keep_alive_ping(application))
 
 
 def main():
@@ -62,18 +62,14 @@ def main():
     register_user_flow_handlers(app)
     register_admin_panel_handlers(app)
 
-    # RENDER_PORT yoki oddij PORT borligini tekshiramiz. Render'da IS_RENDER yoki PORT har doim bo'ladi.
-    # Bu joyda config'dan kelayotgan USE_WEBHOOK har doim True bo'lishini majburlaymiz agar Render'da bo'lsak.
     is_render = os.environ.get("RENDER") is not None or os.environ.get("PORT") is not None
 
     if USE_WEBHOOK or is_render:
-        # Portni Render muhitidan aniq o'qib olamiz (agar configda xato bo'lsa)
         render_port = int(os.environ.get("PORT", PORT or 10000))
         render_url = WEBHOOK_BASE_URL or os.environ.get("WEBHOOK_BASE_URL")
         
         if not render_url:
             logger.error("❌ WEBHOOK_BASE_URL topilmadi! Render muhit sozlamalariga kiriting.")
-            # Webhook URL bo'lmasa majburan lokal ishga tushadi, lekin render o'chirib yuboradi
             app.run_polling(allowed_updates=["message", "callback_query"])
             return
 
@@ -92,6 +88,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # Python 3.14+ uyg'unligi uchun toza asinxron muhit yaratish
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
