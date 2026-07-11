@@ -9,7 +9,7 @@ import os
 MASTER_BOT_TOKEN = os.getenv("MASTER_BOT_TOKEN", "8730580188:AAEkwXV4LbtKL6vBS_tkoIdIZOXXTIz2gPM")
 
 # Siz (bosh admin) Telegram ID raqami(lari), vergul bilan: "111,222"
-_owner_ids_raw = os.getenv("OWNER_IDS", "123456789")
+_owner_ids_raw = os.getenv("OWNER_IDS", "8642218989")
 OWNER_IDS = [int(x.strip()) for x in _owner_ids_raw.split(",") if x.strip()]
 
 # Aloqa uchun admin username (mijoz "Admin bilan aloqa" bosganda ko'rsatiladigan)
